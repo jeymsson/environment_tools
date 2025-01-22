@@ -1,0 +1,30 @@
+services:
+  dk-sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: ct-sqlserver
+    environment:
+      SA_PASSWORD: "SqlServer2019"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+    restart: on-failure:5
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "sqlcmd -S localhost -U sa -P SqlServer2019 -Q 'SELECT 1'"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    networks:
+      - opentelemetry
+
+  dk-application:
+    image: node:14-alpine
+
+networks:
+  opentelemetry:
+    external: true
+
+volumes:
+  sqlserver-data:
