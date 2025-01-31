@@ -48,3 +48,10 @@ datasources:
           url: '$${__value.raw}'
           datasourceUid: 'tempo'
           urlDisplayLabel: 'Tempo'
+
+- name: k6influxdb
+  type: influxdb
+  access: proxy
+  database: k6
+  url: http://influxdb:8086
+  isDefault: false

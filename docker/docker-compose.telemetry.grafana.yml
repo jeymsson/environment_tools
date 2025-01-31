@@ -30,6 +30,7 @@ services:
       - 4007:4317  # otlp grpc
     depends_on:
       - otel-collector
+      - grafana
     networks:
       - opentelemetry
     profiles:
@@ -48,6 +49,8 @@ services:
     restart: unless-stopped
     ports:
       - 3100:3100
+    depends_on:
+      - grafana
     networks:
       - opentelemetry
     profiles:
@@ -70,19 +73,19 @@ services:
     restart: unless-stopped
     ports:
       - 3001:3000
-    depends_on:
-      - prometheus
-      - tempo
-      - loki
     networks:
       - opentelemetry
+      - grafana
     profiles:
       - otel-all
       - otel-grafana
+      - k6-tests
 
 networks:
   opentelemetry:
     external: true
+  grafana:
+    driver: bridge
 
 volumes:
   loki:
