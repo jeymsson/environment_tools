@@ -1517,7 +1517,9 @@
   ],
   "schemaVersion": 14,
   "style": "dark",
-  "tags": [],
+  "tags": [
+    "k6"
+  ],
   "templating": {
     "list": [
       {

@@ -6,3 +6,21 @@ providers:
     type: file
     options:
       path: /etc/grafana/provisioning/dashboards
+
+  - name: 'k6'
+    folder: 'k6'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/k6
+
+  - name: 'ASP DotNet'
+    folder: 'ASP DotNet'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/ASP DotNet
+
+  - name: 'Others'
+    folder: 'Others'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/Others

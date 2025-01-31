@@ -12,7 +12,7 @@ services:
       - 9115:9115
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ../config/blackbox.yml:/etc/blackbox/blackbox.yml
+      - ../config/prometheus/blackbox.yml:/etc/blackbox/blackbox.yml
     command: --config.file=/etc/blackbox/blackbox.yml
     networks:
       - opentelemetry
@@ -30,7 +30,7 @@ services:
       - 9090:9090
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ../config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus:/prometheus
     depends_on:
       blackbox:

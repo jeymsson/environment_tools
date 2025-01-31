@@ -2,14 +2,6 @@
 # docker compose --profile otel-all up -d
 # docker compose --profile k6-tests up -d
 
-networks:
-  k6:
-    driver: bridge
-  grafana:
-    driver: bridge
-  opentelemetry:
-    external: true
-
 services:
   influxdb:
     image: influxdb:1.8
@@ -39,3 +31,11 @@ services:
     profiles:
       - otel-all
       - k6-tests
+
+networks:
+  k6:
+    driver: bridge
+  grafana:
+    driver: bridge
+  opentelemetry:
+    external: true

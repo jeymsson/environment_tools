@@ -22,7 +22,7 @@ services:
     command: [ "-config.file=/etc/tempo.yaml" ]
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ../config/tempo.yml:/etc/tempo.yaml
+      - ../config/grafana/tempo.yml:/etc/tempo.yaml
       - tempo:/tmp/tempo
     restart: unless-stopped
     ports:
@@ -44,7 +44,7 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ../config/loki.yml:/etc/loki/local-config.yaml
+      - ../config/grafana/loki.yml:/etc/loki/local-config.yaml
       - loki:/data/loki
     restart: unless-stopped
     ports:
@@ -68,8 +68,8 @@ services:
       - GF_AUTH_DISABLE_LOGIN_FORM=true
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - grafana-data:/var/lib/grafana
       - ../config/grafana/provisioning:/etc/grafana/provisioning #https://grafana.com/docs/grafana/latest/administration/provisioning/
+      - grafana-data:/var/lib/grafana
     restart: unless-stopped
     ports:
       - 3001:3000
