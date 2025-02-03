@@ -1,4 +1,5 @@
 # Usage:
+# docker compose --profile all up -d
 # docker compose --profile otel-all up -d
 # docker compose --profile otel-jaeger up -d
 
@@ -11,6 +12,7 @@ services:
     networks:
       - opentelemetry
     profiles:
+      - all
       - otel-all
       - otel-jaeger
 
@@ -21,9 +23,11 @@ services:
     networks:
       - opentelemetry
     profiles:
+      - all
       - otel-all
       - otel-jaeger
 
 networks:
   opentelemetry:
     external: true
+

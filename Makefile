@@ -19,25 +19,25 @@ create-network:
 # Alvo para subir os serviços
 up: create-network
 	@echo "Subindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile otel-all --profile sonarqube \
+	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile all \
 					-f $(COMPOSE_FILE) up -d
 
 # Alvo para derrubar os serviços
 down:
 	@echo "Derrubando os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile otel-all --profile sonarqube \
+	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile all \
 					-f $(COMPOSE_FILE) down
 
 # Alvo para destruir os serviços
 destroy:
 	@echo "Destruindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile otel-all --profile k6-tests --profile sonarqube \
+	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile all \
 					-f $(COMPOSE_FILE) down -v
 
 # Alvo para reconstruir os serviços
 rebuild:
 	@echo "Reconstruindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile otel-all \
+	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile all \
 					-f $(COMPOSE_FILE) up -d --build
 
 # Alvo para rodar os testes com k6
