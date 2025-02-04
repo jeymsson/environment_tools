@@ -1,0 +1,159 @@
+# Usage:
+# docker compose --profile all up -d
+# docker compose --profile elk up -d
+
+services:
+  elasticsearch:
+    image: elasticsearch:${ELASTICSEARCH_TAG}
+    restart: unless-stopped
+    stop_grace_period: 10s
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+      xpack.security.enabled: false
+      xpack.security.authc.api_key.enabled: true
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - ${ELASTICSEARCH_PORT}:9200
+    networks:
+      - nw_elk
+    profiles:
+      - all
+      - elk
+
+  kibana:
+    image: kibana:${KIBANA_TAG}
+    restart: unless-stopped
+    stop_grace_period: 10s
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    volumes:
+      - ../config/elk/kibana.yml:/usr/share/kibana/config/kibana.yml
+    ports:
+      - ${KIBANA_PORT}:5601
+    networks:
+      - nw_elk
+    profiles:
+      - all
+      - elk
+
+  logstash:
+    image: logstash:${LOGSTASH_TAG}
+    restart: unless-stopped
+    stop_grace_period: 10s
+    ports:
+      - ${LOGSTASH_PORT}:5044
+      - ${LOGSTASH_API_PORT}:9600
+    volumes:
+      - ../config/elk/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ../config/elk/pipeline:/usr/share/logstash/pipeline
+    networks:
+      - nw_elk
+    profiles:
+      - all
+      - elk
+
+  heartbeat:
+    image: elastic/heartbeat:${HEARTBEAT_TAG}
+    user: heartbeat
+    restart: unless-stopped
+    stop_grace_period: 10s
+    cap_add:
+      - NET_RAW
+    volumes:
+      - ../config/elk/heartbeat.yml:/usr/share/heartbeat/heartbeat.yml:ro
+    environment:
+      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      KIBANA_HOSTS: kibana:5601
+    command: ["--strict.perms=false"]
+    networks:
+      - nw_elk
+    profiles:
+      - all
+      - elk
+
+  metricbeat:
+    image: elastic/metricbeat:${METRICBEAT_TAG}
+    user: root
+    restart: unless-stopped
+    stop_grace_period: 10s
+    cap_add:
+      - sys_ptrace
+      - dac_read_search
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
+      - /proc:/hostfs/proc:ro
+      - ../config/elk/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
+    environment:
+      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      KIBANA_HOSTS: kibana:5601
+    command: ["--strict.perms=false"]
+    networks:
+      - nw_elk
+    profiles:
+      - all
+      - elk
+
+  filebeat:
+    image: elastic/filebeat:${FILEBEAT_TAG}
+    user: root
+    restart: unless-stopped
+    stop_grace_period: 10s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ../config/elk/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    environment:
+      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      KIBANA_HOSTS: kibana:5601
+    command: ["--strict.perms=false"]
+    networks:
+      - nw_elk
+    profiles:
+      - all
+      - elk
+
+  auditbeat:
+    image: elastic/auditbeat:${AUDITBEAT_TAG}
+    user: root
+    restart: unless-stopped
+    stop_grace_period: 10s
+    pid: host
+    cap_add:
+      - AUDIT_CONTROL
+      - AUDIT_READ
+    volumes:
+      - ../config/elk/auditbeat.yml:/usr/share/auditbeat/auditbeat.yml:ro
+    environment:
+      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      KIBANA_HOSTS: kibana:5601
+      TINI_SUBREAPER: 1
+    command: ["--strict.perms=false"]
+    networks:
+      - nw_elk
+    profiles:
+      - all
+      - elk
+
+  apm-server:
+    image: elastic/apm-server:${APM_TAG}
+    container_name: apm-server
+    volumes:
+      - ../config/elk/apm-server.yml:/usr/share/apm-server/apm-server.yml
+    ports:
+      - "8200:8200"
+    restart: on-failure
+    networks:
+      - nw_elk
+    profiles:
+      - all
+      - elk
+
+networks:
+  nw_elk:
+    driver: bridge
+
+volumes:
+  elasticsearch-data: {}

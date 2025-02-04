@@ -5,7 +5,7 @@ COMPOSE_FILE=docker-compose.yml
 COMPOSE_TELEMETRY_FILE=./docker-compose.telemetry.all.yml
 
 # Alvos
-.PHONY: up down create-network destroy rebuild k6-tests sonarqube
+.PHONY: up down create-network destroy rebuild k6-tests sonarqube elk
 
 # Alvo para criar a rede se não existir
 create-network:
@@ -50,4 +50,10 @@ k6-tests: create-network
 sonarqube:
 	@echo "Destruindo os serviços com Docker Compose..."
 	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile sonarqube \
+					-f $(COMPOSE_FILE) up -d
+
+# Alvo para subir os serviços do ELK
+elk: create-network
+	@echo "Subindo os serviços com Docker Compose..."
+	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile elk \
 					-f $(COMPOSE_FILE) up -d

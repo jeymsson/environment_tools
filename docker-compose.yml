@@ -19,8 +19,21 @@ services:
     networks:
       - opentelemetry
 
-  dk-application:
-    image: node:14-alpine
+
+  dk-webapplication:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: im-webapplication
+    container_name: ct-webapplication1
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=db,5432;Database=sonar;User=sonar;Password=sonar;TrustServerCertificate=True;
+    ports:
+      - "5001:8080"
+    networks:
+      - opentelemetry
 
 networks:
   opentelemetry:
