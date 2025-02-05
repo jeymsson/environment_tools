@@ -3,12 +3,12 @@
 # docker compose --profile elk up -d
 
 services:
-  elastic:
+  elasticsearch:
     image: elasticsearch:${ELASTICSEARCH_TAG}
     restart: unless-stopped
     stop_grace_period: 10s
     networks:
-      - shared
+      - nw_elk
       - opentelemetry
     volumes:
       - esdata01:/usr/share/elasticsearch/data
@@ -18,7 +18,7 @@ services:
     environment:
       discovery.type: single-node
       ES_JAVA_OPTS: -Xms1g -Xmx1g
-      ELASTIC_PASSWORD: elastic
+      ELASTIC_PASSWORD: changeme
       xpack.security.enabled: true # Necessary for APM
       xpack.security.authc.api_key.enabled: true # Necessary for APM
     ulimits:
@@ -29,7 +29,7 @@ services:
       test:
         [
             "CMD-SHELL",
-            "curl -u elastic:elastic http://localhost:9200 | grep -q 'You Know, for Search'",
+            "curl -u elastic:changeme http://localhost:9200 | grep -q 'You Know, for Search'",
         ]
       interval: 10s
       timeout: 10s
@@ -42,13 +42,13 @@ services:
 
   kibana:
     depends_on:
-      elastic:
+      elasticsearch:
         condition: service_healthy
     image: kibana:${KIBANA_TAG}
     restart: unless-stopped
     stop_grace_period: 10s
     networks:
-      - shared
+      - nw_elk
       - opentelemetry
     volumes:
       - kibanadata:/usr/share/kibana/data
@@ -56,8 +56,8 @@ services:
     ports:
       - 5601:5601
     environment:
-      - ELASTICSEARCH_HOSTS=http://elastic:9200
-      - ELASTICSEARCH_PASSWORD=elastic
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_PASSWORD=changeme
     healthcheck:
       test:
         [
@@ -77,7 +77,7 @@ services:
     image: elastic/apm-server:${APM_TAG}
     restart: on-failure
     networks:
-      - shared
+      - nw_elk
       - opentelemetry
     volumes:
       - ../config/elk/new/apm-server.yml:/usr/share/apm-server/apm-server.yml
@@ -104,7 +104,7 @@ volumes:
     driver: local
 
 networks:
-  shared:
+  nw_elk:
     driver: bridge
   opentelemetry:
     external: true

@@ -1,6 +1,6 @@
 server.host: "0.0.0.0"
-elasticsearch.hosts: ["http://elastic:9200"]
-elasticsearch.password: "elastic"
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+elasticsearch.password: "changeme"
 server.shutdownTimeout: "5s"
 monitoring.ui.container.elasticsearch.enabled: true
 
