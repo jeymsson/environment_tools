@@ -12,7 +12,7 @@ services:
       - opentelemetry
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
-      - ../config/elk/new/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ../config/elk/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
     ports:
       - 9200:9200
     environment:
@@ -52,7 +52,7 @@ services:
       - opentelemetry
     volumes:
       - kibanadata:/usr/share/kibana/data
-      - ../config/elk/new/kibana.yml:/usr/share/kibana/config/kibana.yml
+      - ../config/elk/kibana.yml:/usr/share/kibana/config/kibana.yml
     ports:
       - 5601:5601
     environment:
@@ -80,7 +80,7 @@ services:
       - nw_elk
       - opentelemetry
     volumes:
-      - ../config/elk/new/apm-server.yml:/usr/share/apm-server/apm-server.yml
+      - ../config/elk/apm-server.yml:/usr/share/apm-server/apm-server.yml
     cap_add: ["ALL"]
     ports:
       - 8200:8200
@@ -118,7 +118,7 @@ services:
       elasticsearch:
         condition: service_healthy
       kibana:
-        condition: service_healthy
+        condition: service_started
     env_file:
       - ./envs/.env.elasticstack
     networks:

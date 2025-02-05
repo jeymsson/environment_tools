@@ -1,9 +1,11 @@
-server.name: kibana
 server.host: "0.0.0.0"
 elasticsearch.hosts: ["http://elasticsearch:9200"]
+elasticsearch.password: "changeme"
+server.shutdownTimeout: "5s"
+monitoring.ui.container.elasticsearch.enabled: true
 
-# # Command to generate encryption keys
-# docker run --rm docker.elastic.co/kibana/kibana:8.16.3 bin/kibana-encryption-keys generate
-xpack.encryptedSavedObjects.encryptionKey: 2daa743a126845e38033e93fb41b341b
-xpack.reporting.encryptionKey: e5c6725ef71dac09c9c0bfeaa98b846e
-xpack.security.encryptionKey: a4d59db3554c557dad11bd54bee6e6b6
+# Necessary for APM
+# Add the generated encryption keys here
+xpack.encryptedSavedObjects.encryptionKey: "2daa743a126845e38033e93fb41b341b"
+xpack.reporting.encryptionKey: "e5c6725ef71dac09c9c0bfeaa98b846e"
+xpack.security.encryptionKey: "a4d59db3554c557dad11bd54bee6e6b6"
