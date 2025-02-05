@@ -11,7 +11,7 @@ services:
       - nw_elk
       - opentelemetry
     volumes:
-      - esdata01:/usr/share/elasticsearch/data
+      - elasticsearch-data:/usr/share/elasticsearch/data
       - ../config/elk/new/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
     ports:
       - 9200:9200
@@ -148,9 +148,71 @@ services:
       - all
       - elk
 
+  filebeat:
+    image: elastic/filebeat:${FILEBEAT_TAG}
+    user: root
+    restart: unless-stopped
+    stop_grace_period: 10s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ../config/elk/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    environment:
+      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      KIBANA_HOSTS: kibana:5601
+    command: ["--strict.perms=false"]
+    networks:
+      - nw_elk
+    env_file:
+      - ./envs/.env.elasticstack
+    profiles:
+      - all
+      - elk
+
+  logstash:
+    image: logstash:${LOGSTASH_TAG}
+    restart: unless-stopped
+    stop_grace_period: 10s
+    ports:
+      - ${LOGSTASH_PORT}:5044
+      - ${LOGSTASH_API_PORT}:9600
+    volumes:
+      - ../config/elk/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ../config/elk/pipeline:/usr/share/logstash/pipeline
+    networks:
+      - nw_elk
+    env_file:
+      - ./envs/.env.elasticstack
+    profiles:
+      - all
+      - elk
+
+  auditbeat:
+    image: elastic/auditbeat:${AUDITBEAT_TAG}
+    user: root
+    restart: unless-stopped
+    stop_grace_period: 10s
+    pid: host
+    cap_add:
+      - AUDIT_CONTROL
+      - AUDIT_READ
+    volumes:
+      - ../config/elk/auditbeat.yml:/usr/share/auditbeat/auditbeat.yml:ro
+    environment:
+      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      KIBANA_HOSTS: kibana:5601
+      TINI_SUBREAPER: 1
+    command: ["--strict.perms=false"]
+    networks:
+      - nw_elk
+    env_file:
+      - ./envs/.env.elasticstack
+    profiles:
+      - all
+      - elk
+
 volumes:
-  esdata01:
-    driver: local
+  elasticsearch-data: {}
   kibanadata:
     driver: local
 
@@ -159,68 +221,3 @@ networks:
     driver: bridge
   opentelemetry:
     external: true
-
-#   logstash:
-#     image: logstash:${LOGSTASH_TAG}
-#     restart: unless-stopped
-#     stop_grace_period: 10s
-#     ports:
-#       - ${LOGSTASH_PORT}:5044
-#       - ${LOGSTASH_API_PORT}:9600
-#     volumes:
-#       - ../config/elk/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
-#       - ../config/elk/pipeline:/usr/share/logstash/pipeline
-#     networks:
-#       - nw_elk
-#     profiles:
-#       - all
-#       - elk
-
-
-#   filebeat:
-#     image: elastic/filebeat:${FILEBEAT_TAG}
-#     user: root
-#     restart: unless-stopped
-#     stop_grace_period: 10s
-#     volumes:
-#       - /var/run/docker.sock:/var/run/docker.sock:ro
-#       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-#       - ../config/elk/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-#     environment:
-#       ELASTICSEARCH_HOSTS: elasticsearch:9200
-#       KIBANA_HOSTS: kibana:5601
-#     command: ["--strict.perms=false"]
-#     networks:
-#       - nw_elk
-#     profiles:
-#       - all
-#       - elk
-
-#   auditbeat:
-#     image: elastic/auditbeat:${AUDITBEAT_TAG}
-#     user: root
-#     restart: unless-stopped
-#     stop_grace_period: 10s
-#     pid: host
-#     cap_add:
-#       - AUDIT_CONTROL
-#       - AUDIT_READ
-#     volumes:
-#       - ../config/elk/auditbeat.yml:/usr/share/auditbeat/auditbeat.yml:ro
-#     environment:
-#       ELASTICSEARCH_HOSTS: elasticsearch:9200
-#       KIBANA_HOSTS: kibana:5601
-#       TINI_SUBREAPER: 1
-#     command: ["--strict.perms=false"]
-#     networks:
-#       - nw_elk
-#     profiles:
-#       - all
-#       - elk
-
-# networks:
-#   nw_elk:
-#     driver: bridge
-
-# volumes:
-#   elasticsearch-data: {}
