@@ -30,7 +30,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Server=db,5432;Database=sonar;User=sonar;Password=sonar;TrustServerCertificate=True;
+      Hosts__OTLP: otel-collector
       OTLP__ConsoleExporter: false
+      Hosts__Jaeger: jaeger-agent
     ports:
       - "5001:8080"
     networks:
