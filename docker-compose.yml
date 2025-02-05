@@ -30,6 +30,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Server=db,5432;Database=sonar;User=sonar;Password=sonar;TrustServerCertificate=True;
+      OTLP__ConsoleExporter: false
     ports:
       - "5001:8080"
     networks:

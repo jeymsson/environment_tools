@@ -3,6 +3,7 @@ receivers:
     protocols:
       grpc:
         endpoint: otel-collector:4317
+      http:
 
 processors:
   batch:
@@ -22,20 +23,20 @@ exporters:
     verbosity: detailed
     sampling_initial: 1
     sampling_thereafter: 1
-#   prometheus:
-#     endpoint: otel-collector:8889
-#   otlphttp/logs:
-#     endpoint: http://loki:3100/otlp
-#     tls:
-#       insecure: true
-#   otlp/tempo:
-#     endpoint: tempo:4007
-#     tls:
-#       insecure: true
-#   otlp/jaeger:
-#     endpoint: jaeger:4317
-#     tls:
-#       insecure: true
+  prometheus:
+    endpoint: otel-collector:8889
+  otlphttp/logs:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+  otlp/tempo:
+    endpoint: tempo:4007
+    tls:
+      insecure: true
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
   otlp/elastic:
     endpoint: "http://apm-server:8200"
     tls:
@@ -50,7 +51,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch, attributes, span]
+      processors: [batch]
       exporters: [otlp/elastic]
     metrics:
       receivers: [otlp]
@@ -60,4 +61,3 @@ service:
       receivers: [otlp]
       processors: [batch]
       exporters: [debug, otlp/elastic]
-

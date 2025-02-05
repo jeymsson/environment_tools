@@ -37,8 +37,7 @@ destroy:
 # Alvo para reconstruir os serviços
 rebuild:
 	@echo "Reconstruindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile all \
-					-f $(COMPOSE_FILE) up -d --build
+	docker-compose -f $(COMPOSE_FILE) up -d --build
 
 # Alvo para subir os serviços do ELK
 otel: create-network
