@@ -1,8 +1,12 @@
 output.elasticsearch:
   hosts: ["elasticsearch:9200"]
+  username: "elastic"
+  password: "changeme"
 
 setup.kibana:
   host: "kibana:5601"
+  username: "elastic"
+  password: "changeme"
 
 setup.dashboards.enabled: true
 
@@ -118,7 +122,9 @@ metricbeat.modules:
     - index
 
   period: 30m
-  hosts: ["http://localhost:9200"]
+  hosts: ["http://elasticsearch:9200"]
+  username: "elastic"
+  password: "changeme"
 
 # ================================== General ===================================
 
