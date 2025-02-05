@@ -22,18 +22,22 @@ exporters:
     verbosity: detailed
     sampling_initial: 1
     sampling_thereafter: 1
-  prometheus:
-    endpoint: otel-collector:8889
-  otlphttp/logs:
-    endpoint: http://loki:3100/otlp
-    tls:
-      insecure: true
-  otlp/tempo:
-    endpoint: tempo:4007
-    tls:
-      insecure: true
-  otlp/jaeger:
-    endpoint: jaeger:4317
+#   prometheus:
+#     endpoint: otel-collector:8889
+#   otlphttp/logs:
+#     endpoint: http://loki:3100/otlp
+#     tls:
+#       insecure: true
+#   otlp/tempo:
+#     endpoint: tempo:4007
+#     tls:
+#       insecure: true
+#   otlp/jaeger:
+#     endpoint: jaeger:4317
+#     tls:
+#       insecure: true
+  otlp/elastic:
+    endpoint: "http://apm-server:8200"
     tls:
       insecure: true
 
@@ -47,13 +51,13 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch, attributes, span]
-      exporters: [debug, otlp/tempo, otlp/jaeger]
+      exporters: [otlp/elastic]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [prometheus]
+      exporters: [otlp/elastic]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, otlphttp/logs]
+      exporters: [debug, otlp/elastic]
 

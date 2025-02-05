@@ -40,6 +40,12 @@ rebuild:
 	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile all \
 					-f $(COMPOSE_FILE) up -d --build
 
+# Alvo para subir os serviços do ELK
+otel: create-network
+	@echo "Subindo os serviços com Docker Compose..."
+	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile otel \
+					-f $(COMPOSE_FILE) up -d
+
 # Alvo para rodar os testes com k6
 k6-tests: create-network
 	@echo "Reconstruindo os serviços com Docker Compose..."
