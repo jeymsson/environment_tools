@@ -1,0 +1,169 @@
+# Usage:
+# docker compose --profile all up -d
+# docker compose --profile elk up -d
+
+x-common: &common
+  restart: unless-stopped
+  stop_grace_period: 10s
+  env_file:
+    - ./envs/.env.elasticstack
+  networks:
+    - nw_elk
+    - opentelemetry
+  profiles:
+    - all
+    - elk
+
+services:
+  elasticsearch:
+    image: elasticsearch:${ELASTICSEARCH_TAG}
+    <<: *common
+    ports:
+      - 9200:9200
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+      ELASTIC_PASSWORD: changeme
+      xpack.security.enabled: true # Necessary for APM
+      xpack.security.authc.api_key.enabled: true # Necessary for APM
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+      - ../config/elk/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test:
+        [
+            "CMD-SHELL",
+            "curl -u elastic:changeme http://localhost:9200 | grep -q 'You Know, for Search'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+
+  kibana:
+    image: kibana:${KIBANA_TAG}
+    <<: *common
+    ports:
+      - 5601:5601
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_PASSWORD=changeme
+    volumes:
+      - kibanadata:/usr/share/kibana/data
+      - ../config/elk/kibana.yml:/usr/share/kibana/config/kibana.yml
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+            "CMD-SHELL",
+            "curl -u elastic:changeme http://localhost:5601/api/status | grep -q '200'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+
+  apm-server:
+    image: elastic/apm-server:${APM_TAG}
+    <<: *common
+    ports:
+      - 8200:8200
+    environment:
+        - LOG_LEVEL=debug
+    volumes:
+      - ../config/elk/apm-server.yml:/usr/share/apm-server/apm-server.yml
+    command: --strict.perms=false
+    cap_add: ["ALL"]
+    healthcheck:
+      interval: 10s
+      retries: 12
+      test: curl --write-out 'HTTP %{http_code}' --fail --silent --output /dev/null http://localhost:8200/
+
+  metricbeat:
+    image: elastic/metricbeat:${METRICBEAT_TAG}
+    <<: *common
+    user: root
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      KIBANA_HOSTS: http://kibana:5601
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
+      - /proc:/hostfs/proc:ro
+      - ../config/elk/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
+    command: ["--strict.perms=false"]
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      kibana:
+        condition: service_started
+    cap_add:
+      - sys_ptrace
+      - dac_read_search
+
+  heartbeat:
+    image: elastic/heartbeat:${HEARTBEAT_TAG}
+    <<: *common
+    user: heartbeat
+    environment:
+      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      KIBANA_HOSTS: kibana:5601
+    volumes:
+      - ../config/elk/heartbeat.yml:/usr/share/heartbeat/heartbeat.yml:ro
+    command: ["--strict.perms=false"]
+    cap_add:
+      - NET_RAW
+
+  filebeat:
+    image: elastic/filebeat:${FILEBEAT_TAG}
+    <<: *common
+    user: root
+    environment:
+      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      KIBANA_HOSTS: kibana:5601
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ../config/elk/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    command: ["--strict.perms=false"]
+
+  logstash:
+    image: logstash:${LOGSTASH_TAG}
+    <<: *common
+    ports:
+      - ${LOGSTASH_PORT}:5044
+      - ${LOGSTASH_API_PORT}:9600
+    volumes:
+      - ../config/elk/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ../config/elk/pipeline:/usr/share/logstash/pipeline
+
+  auditbeat:
+    image: elastic/auditbeat:${AUDITBEAT_TAG}
+    <<: *common
+    user: root
+    pid: host
+    environment:
+      ELASTICSEARCH_HOSTS: elasticsearch:9200
+      KIBANA_HOSTS: kibana:5601
+      TINI_SUBREAPER: 1
+    volumes:
+      - ../config/elk/auditbeat.yml:/usr/share/auditbeat/auditbeat.yml:ro
+    command: ["--strict.perms=false"]
+    cap_add:
+      - AUDIT_CONTROL
+      - AUDIT_READ
+
+volumes:
+  elasticsearch-data: {}
+  kibanadata:
+    driver: local
+
+networks:
+  nw_elk:
+    driver: bridge
+  opentelemetry:
+    external: true
