@@ -5,8 +5,6 @@
 x-common: &common
   restart: unless-stopped
   stop_grace_period: 10s
-  env_file:
-    - ./envs/.env.elasticstack
   networks:
     - nw_elk
     - opentelemetry
