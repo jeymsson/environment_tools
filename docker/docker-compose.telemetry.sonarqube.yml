@@ -50,7 +50,6 @@ services:
     networks:
       - nw_sonarqube
     working_dir: /src
-    env_file: .env
     volumes:
       - ../WebApplication:/src
     entrypoint: > # tail -f /dev/null
@@ -59,6 +58,8 @@ services:
         dotnet sonarscanner begin /k:\"${SONAR_PROJECT_KEY}\" /d:sonar.host.url=\"${SONAR_HOST_URL}\" /d:sonar.token=\"${SONAR_LOGIN}\" && \
         dotnet build WebApplication.csproj && \
         dotnet sonarscanner end /d:sonar.token=\"${SONAR_LOGIN}\""
+    env_file:
+      - ./envs/.env.sonarqube
     profiles:
       - all
       - sonarqube
