@@ -1,0 +1,42 @@
+# Usage:
+# docker compose --profile otel-slim up -d
+
+services:
+  otel-collector-slim:
+    container_name: otel-collector-slim
+    hostname: otel-collector-slim
+    image: otel/opentelemetry-collector-contrib:0.113.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ../config/opentelemetry/otel-slim.yml:/etc/otel-collector-config.yaml:ro
+    restart: unless-stopped
+    environment:
+      - OTELCOL_LOG_LEVEL=debug
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Métricas do Collector
+      - "8889:8889"   # Exporter Prometheus
+      - "13133:13133" # Health Check
+    depends_on:
+      - lgtm
+    networks:
+      - opentelemetry
+    profiles:
+      - otel-slim
+
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: lgtm
+    hostname: lgtm
+    restart: unless-stopped
+    ports:
+      - "4000:3000" # Interface do Grafana
+    networks:
+      - opentelemetry
+    profiles:
+      - otel-slim
+
+networks:
+  opentelemetry:
+    external: true

@@ -1,0 +1,85 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: otel-collector-slim:4317
+      http:
+        endpoint: otel-collector-slim:4318
+
+processors:
+  batch:
+    timeout: 10s
+
+  attributes:
+    actions:
+      - key: host.location
+        action: insert
+        value: homo
+
+  span:
+    name:
+      from_attributes:
+        - span.name.original
+        - host.location
+      separator: ":"
+
+exporters:
+
+  debug:
+    verbosity: detailed
+    sampling_initial: 1
+    sampling_thereafter: 1
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+  otlp/lgtm:
+    endpoint: lgtm:4317
+    tls:
+      insecure: true
+
+  otlp/elastic:
+    endpoint: http://apm-server:8200
+    tls:
+      insecure: true
+
+extensions:
+  health_check:
+
+service:
+  extensions:
+    - health_check
+
+  pipelines:
+
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - batch
+        - attributes
+        - span
+      exporters:
+        - debug
+        - otlp/lgtm
+        - otlp/elastic
+
+    metrics:
+      receivers:
+        - otlp
+      processors:
+        - batch
+      exporters:
+        - prometheus
+        - otlp/lgtm
+        - otlp/elastic
+
+    logs:
+      receivers:
+        - otlp
+      processors:
+        - batch
+      exporters:
+        - debug
+        - otlp/lgtm
+        - otlp/elastic

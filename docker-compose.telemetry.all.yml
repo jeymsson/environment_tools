@@ -7,6 +7,7 @@
 # docker compose --profile k6-tests up -d
 # docker compose --profile sonarqube up -d
 # docker compose --profile elk up -d
+# docker compose --profile otel-slim up -d
 
 include:
   - ./docker/docker-compose.telemetry.multipages.yml
@@ -17,3 +18,4 @@ include:
   - ./docker/docker-compose.telemetry.k6.yml
   - ./docker/docker-compose.telemetry.sonarqube.yml
   - ./docker/docker-compose.telemetry.elasticstack.yml
+  - ./docker/docker-compose.telemetry.otel-slim.yml
