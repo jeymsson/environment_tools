@@ -4,7 +4,7 @@
 
 # Variáveis
 COMPOSE_FILE=docker-compose.yml
-COMPOSE_TELEMETRY_FILE=./environment_tools/docker-compose.telemetry.all.yml
+COMPOSE_TELEMETRY_FILE=./docker-compose.telemetry.all.yml
 
 # Alvos
 .PHONY: up down create-network destroy rebuild k6-tests sonarqube elk help
@@ -22,48 +22,41 @@ create-network: ## Cria a rede
 	fi
 
 # Alvo para subir os serviços
-up: create-network ## Sobe todos os serviços
+up: ## Sobe todos os serviços
 	@echo "Subindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile all \
-					-f $(COMPOSE_FILE) up -d
+	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile all up -d
 
 # Alvo para derrubar os serviços
 down: ## Derruba todos os serviços
 	@echo "Derrubando os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile all \
-					-f $(COMPOSE_FILE) down
+	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile all down
 
 # Alvo para destruir os serviços
 destroy: ## Destrói todos os serviços
 	@echo "Destruindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile all \
-					-f $(COMPOSE_FILE) down -v
+	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile all down -v
 
 # Alvo para reconstruir os serviços
 rebuild: ## Reconstrói todos aplicacao principal
 	@echo "Reconstruindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_FILE) build
+	docker compose -f $(COMPOSE_FILE) build
 
 # Alvo para subir os serviços do ELK
-otel: create-network ## Sobe aplicacao com OpenTelemetry
+otel: ## Sobe aplicacao com OpenTelemetry
 	@echo "Subindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile otel \
-					-f $(COMPOSE_FILE) up -d
+	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile otel up -d
 
 # Alvo para rodar os testes com k6
-k6-tests: create-network ## Roda os testes com k6
+k6-tests: ## Roda os testes com k6
 	@echo "Reconstruindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile k6-tests \
-					-f $(COMPOSE_FILE) up -d --build
+	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile k6-tests up -d --build
 
 # Alvo para subir os serviços do SonarQube
 sonarqube: ## Sobe os serviços do SonarQube
 	@echo "Destruindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile sonarqube \
-					-f $(COMPOSE_FILE) up -d
+	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile sonarqube up -d
 
 # Alvo para subir os serviços do ELK
-elk: create-network ## Sobe os serviços do ELK com opentelemetry
+elk: ## Sobe os serviços do ELK com opentelemetry
 	@echo "Subindo os serviços com Docker Compose..."
-	docker-compose -f $(COMPOSE_TELEMETRY_FILE) --profile elk \
-					-f $(COMPOSE_FILE) up -d
+	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile elk up -d
