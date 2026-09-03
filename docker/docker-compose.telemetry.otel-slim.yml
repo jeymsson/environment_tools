@@ -1,5 +1,6 @@
 # Usage:
-# docker compose --profile otel-slim up -d
+# make up
+# make compose otel-slim
 
 services:
   otel-collector-slim:
@@ -12,6 +13,7 @@ services:
     restart: unless-stopped
     environment:
       - OTELCOL_LOG_LEVEL=debug
+      - HOST_LOCATION=${HOST_LOCATION:-NAO-ADICIONADO}  # Valor resolvido em runtime e usado no atributo host.location do collector.
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
@@ -22,8 +24,6 @@ services:
       - lgtm
     networks:
       - opentelemetry
-    profiles:
-      - otel-slim
 
   lgtm:
     image: grafana/otel-lgtm:latest
@@ -34,8 +34,6 @@ services:
       - "4000:3000" # Interface do Grafana
     networks:
       - opentelemetry
-    profiles:
-      - otel-slim
 
 networks:
   opentelemetry:

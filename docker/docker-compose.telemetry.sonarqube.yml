@@ -1,6 +1,6 @@
 # Usage:
-# docker compose --profile all up -d
-# docker compose --profile sonarqube up -d
+# make up
+# make compose sonarqube
 
 services:
   sonarqube:
@@ -20,9 +20,6 @@ services:
         condition: service_started
     networks:
       - nw_sonarqube
-    profiles:
-      - all
-      - sonarqube
 
   sonarqube_db:
     image: postgres:latest
@@ -35,16 +32,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - nw_sonarqube
-    profiles:
-      - all
-      - sonarqube
 
   sonarscanner_dotnet:
     image: mcr.microsoft.com/dotnet/sdk:8.0
     container_name: sonarscanner_dotnet
     depends_on:
-      dk-webapplication:
-        condition: service_started
       sonarqube:
         condition: service_started
     networks:
@@ -60,9 +52,6 @@ services:
         dotnet sonarscanner end /d:sonar.token=\"${SONAR_LOGIN}\""
     env_file:
       - ./envs/.env.sonarqube
-    profiles:
-      - all
-      - sonarqube
 
 networks:
   nw_sonarqube:

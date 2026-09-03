@@ -1,9 +1,10 @@
 # Usage:
-# docker compose --profile all up -d
-# docker compose --profile otel-all up -d
-# docker compose --profile otel-prometheus up -d
-# docker compose --profile otel-grafana up -d
-# docker compose --profile otel-jaeger up -d
+# make up
+# make compose otel
+# make compose otel prometheus
+# make compose otel grafana
+# make compose otel jaeger
+# make compose otel prometheus grafana jaeger
 
 services:
   otel-collector:
@@ -25,14 +26,6 @@ services:
     #   - "14250:14250" # jaeger receiverotel
     networks:
       - opentelemetry
-    profiles:
-      - all
-      - otel
-      - otel-all
-      - otel-prometheus
-      - otel-grafana
-      - otel-jaeger
-      - elk
 
 networks:
   opentelemetry:

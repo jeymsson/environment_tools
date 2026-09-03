@@ -1,62 +1,129 @@
-# Nome do arquivo: Makefile
+.PHONY: help create-network up down destroy rebuild compose logs otel otel-slim k6-tests sonarqube elk elk-down elk-destroy elk-gen-password man
 
-.DEFAULT_GOAL := help
+indent_style = tab
 
-# Variáveis
-COMPOSE_FILE=docker-compose.yml
-COMPOSE_TELEMETRY_FILE=./docker-compose.telemetry.all.yml
+RED    := \033[0;31m
+GREEN  := \033[0;32m
+YELLOW := \033[0;33m
+NC     := \033[0m
 
-# Alvos
-.PHONY: up down create-network destroy rebuild k6-tests sonarqube elk help
+# Arquivo compose da aplicação principal (usado só no "rebuild")
+COMPOSE_FILE = docker-compose.yml
 
-help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+# Mapeamento: palavra-chave -> arquivo(s) compose de telemetria
+# (equivalente aos antigos "include" + "--profile" do docker-compose.telemetry.all.yml)
+FILES_multipages  = -f docker/docker-compose.telemetry.multipages.yml
+FILES_otel        = -f docker/docker-compose.telemetry.otel.yml
+FILES_otel-slim   = -f docker/docker-compose.telemetry.otel-slim.yml
+FILES_jaeger      = -f docker/docker-compose.telemetry.jaeger.yml
+FILES_prometheus  = -f docker/docker-compose.telemetry.prometheus.yml
+FILES_grafana     = -f docker/docker-compose.telemetry.grafana.yml
+FILES_k6          = -f docker/docker-compose.telemetry.k6.yml
+FILES_sonarqube   = -f docker/docker-compose.telemetry.sonarqube.yml
+FILES_elk         = -f docker/docker-compose.telemetry.elasticstack.yml
 
-# Alvo para criar a rede se não existir 'opentelemetry' para os serviços
-create-network: ## Cria a rede 
+ALL = $(FILES_multipages) $(FILES_otel) $(FILES_jaeger) $(FILES_prometheus) $(FILES_grafana) $(FILES_k6) $(FILES_sonarqube) $(FILES_elk) $(FILES_otel-slim)
+
+# Captura os argumentos extras passados depois do target (ex: otel otel-slim jaeger)
+ARGS := $(filter-out compose logs,$(MAKECMDGOALS))
+COMPOSE_FILES := $(foreach a,$(ARGS),$(FILES_$(a)))
+
+# Se "elk" estiver entre os argumentos, injeta automaticamente o --env-file necessário
+ENV_FILE :=
+ifneq (,$(filter elk,$(ARGS)))
+ENV_FILE := --env-file ./docker/envs/.env.elasticstack
+endif
+
+# Impede o Make de reclamar "No rule to make target 'otel-slim'" etc
+%:
+	@:
+
+help: ## Lista os targets disponíveis
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+
+# # Como usar
+# make compose otel
+# make compose otel-slim
+# make compose otel jaeger prometheus grafana
+# make compose elk
+# make logs otel-slim
+# make logs elk
+
+create-network: ## Cria a rede 'opentelemetry' se não existir
 	@if ! docker network inspect opentelemetry >/dev/null 2>&1; then \
 		echo "Rede 'opentelemetry' não encontrada. Criando rede..."; \
 		docker network create opentelemetry; \
-	else \
-		echo "Rede 'opentelemetry' já existe."; \
 	fi
 
-# Alvo para subir os serviços
-up: ## Sobe todos os serviços
-	@echo "Subindo os serviços com Docker Compose..."
-	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile all up -d
-
-# Alvo para derrubar os serviços
-down: ## Derruba todos os serviços
-	@echo "Derrubando os serviços com Docker Compose..."
-	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile all down
-
-# Alvo para destruir os serviços
-destroy: ## Destrói todos os serviços
-	@echo "Destruindo os serviços com Docker Compose..."
-	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile all down -v
-
-# Alvo para reconstruir os serviços
-rebuild: ## Reconstrói todos aplicacao principal
+rebuild: ## Reconstrói a aplicação principal
 	@echo "Reconstruindo os serviços com Docker Compose..."
 	docker compose -f $(COMPOSE_FILE) build
 
-# Alvo para subir os serviços do ELK
-otel: ## Sobe aplicacao com OpenTelemetry
+compose: create-network ## Sobe combinando arquivos: make compose otel otel-slim jaeger
+	docker compose $(ENV_FILE) $(COMPOSE_FILES) up -d
+
+logs: ## Logs combinando arquivos: make logs otel-slim
+	docker compose $(ENV_FILE) $(COMPOSE_FILES) logs -f --tail=100
+
+up: create-network ## Sobe todos os serviços de telemetria
 	@echo "Subindo os serviços com Docker Compose..."
-	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile otel up -d
+	docker compose $(ALL) up -d
 
-# Alvo para rodar os testes com k6
-k6-tests: ## Roda os testes com k6
-	@echo "Reconstruindo os serviços com Docker Compose..."
-	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile k6-tests up -d --build
+down: ## Derruba todos os serviços de telemetria
+	@echo "Derrubando os serviços com Docker Compose..."
+	docker compose $(ALL) down --remove-orphans
 
-# Alvo para subir os serviços do SonarQube
-sonarqube: ## Sobe os serviços do SonarQube
+destroy: ## Destrói todos os serviços de telemetria (com volumes)
 	@echo "Destruindo os serviços com Docker Compose..."
-	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile sonarqube up -d
+	docker compose $(ALL) down -v --remove-orphans
 
-# Alvo para subir os serviços do ELK
-elk: ## Sobe os serviços do ELK com opentelemetry
+otel: create-network ## Sobe aplicação com OpenTelemetry
+	docker compose $(FILES_otel) up -d
+
+otel-slim: create-network ## Sobe aplicação com OpenTelemetry Slim
+	docker compose $(FILES_otel-slim) up -d
+
+k6-tests: create-network ## Roda os testes com k6
+	docker compose $(FILES_k6) up -d --build
+
+sonarqube: create-network ## Sobe os serviços do SonarQube
+	docker compose $(FILES_sonarqube) up -d
+
+elk: create-network ## Sobe os serviços do ELK com opentelemetry
 	@echo "Subindo os serviços com Docker Compose..."
-	docker compose -f $(COMPOSE_TELEMETRY_FILE) --profile elk up -d
+	docker compose --env-file ./docker/envs/.env.elasticstack $(FILES_elk) up -d
+
+elk-down: ## Derruba os serviços do ELK com opentelemetry
+	@echo "Derrubando os serviços com Docker Compose..."
+	docker compose --env-file ./docker/envs/.env.elasticstack $(FILES_elk) down || true
+
+elk-destroy: ## Destroi os serviços do ELK com opentelemetry (com volumes)
+	@echo "Derrubando os serviços com Docker Compose..."
+	docker compose --env-file ./docker/envs/.env.elasticstack $(FILES_elk) down -v || true
+
+elk-gen-password: ## Gera a senha do Elasticsearch/Kibana
+	@echo "Gerando a senha do Elasticsearch/Kibana..."
+	docker compose --env-file ./docker/envs/.env.elasticstack $(FILES_elk) run --rm elasticsearch bin/elasticsearch-reset-password -u elastic
+
+man: ## Mostra instruções de uso
+	@echo "$(GREEN)Telemetria com OpenTelemetry.$(NC)"
+	@echo "Passos a seguir:"
+	@echo "."
+	@echo " Setup"
+	@echo "  1. Rodar $(GREEN) make create-network $(NC) (feito automaticamente pelos targets de compose)."
+	@echo "  2. Subir combinando o que precisar: $(GREEN) make compose otel $(NC), $(GREEN) make compose otel-slim $(NC), etc."
+	@echo "     Palavras-chave disponíveis: multipages, otel, otel-slim, jaeger, prometheus, grafana, k6, sonarqube, elk"
+	@echo "."
+	@echo " Administração"
+	@echo "  3. Caso necessário encerrar containeres, rodar $(GREEN) make down $(NC)."
+	@echo "  4. Caso necessário encerrar containeres e remover volumes, rodar $(GREEN) make destroy $(NC)."
+	@echo "."
+	@echo " ELK"
+	@echo "  5. Subir com $(GREEN) make elk $(NC) ou $(GREEN) make compose elk $(NC)."
+	@echo "  6. Gerar senha com $(GREEN) make elk-gen-password $(NC)."
+	@echo "."
+	@echo "  7. Exemplos de comando:"
+	@echo "     $(GREEN) make compose otel-slim $(NC)"
+	@echo "     $(GREEN) make compose otel jaeger prometheus grafana $(NC)"
+	@echo "     $(GREEN) make logs otel-slim $(NC)"

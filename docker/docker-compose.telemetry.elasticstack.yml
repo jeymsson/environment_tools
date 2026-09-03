@@ -1,6 +1,7 @@
 # Usage:
-# docker compose --profile all up -d
-# docker compose --profile elk up -d
+# make up
+# make compose elk
+# alterar senha: bin/elasticsearch-reset-password
 
 x-common: &common
   restart: unless-stopped
@@ -8,9 +9,6 @@ x-common: &common
   networks:
     - nw_elk
     - opentelemetry
-  profiles:
-    - all
-    - elk
 
 services:
   elasticsearch:
@@ -21,7 +19,7 @@ services:
     environment:
       discovery.type: single-node
       ES_JAVA_OPTS: -Xms1g -Xmx1g
-      ELASTIC_PASSWORD: changeme
+      ELASTIC_PASSWORD: ${ELASTICSEARCH_PASSWORD}
       xpack.security.enabled: true # Necessary for APM
       xpack.security.authc.api_key.enabled: true # Necessary for APM
     volumes:
@@ -35,7 +33,7 @@ services:
       test:
         [
             "CMD-SHELL",
-            "curl -u elastic:changeme http://localhost:9200 | grep -q 'You Know, for Search'",
+            "curl -u elastic:${ELASTICSEARCH_PASSWORD} http://localhost:9200 | grep -q 'You Know, for Search'",
         ]
       interval: 10s
       timeout: 10s
@@ -47,8 +45,8 @@ services:
     ports:
       - 5601:5601
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - ELASTICSEARCH_PASSWORD=changeme
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD}
     volumes:
       - kibanadata:/usr/share/kibana/data
       - ../config/elk/kibana.yml:/usr/share/kibana/config/kibana.yml
@@ -59,7 +57,7 @@ services:
       test:
         [
             "CMD-SHELL",
-            "curl -u elastic:changeme http://localhost:5601/api/status | grep -q '200'",
+            "curl --fail --silent http://localhost:5601/api/status > /dev/null"
         ]
       interval: 10s
       timeout: 10s

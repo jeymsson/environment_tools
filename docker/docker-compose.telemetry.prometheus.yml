@@ -1,7 +1,7 @@
 # Usage:
-# docker compose --profile all up -d
-# docker compose --profile otel-all up -d
-# docker compose --profile otel-prometheus up -d
+# make up
+# make compose otel prometheus
+# make compose prometheus
 
 services:
   blackbox:
@@ -17,10 +17,6 @@ services:
     command: --config.file=/etc/blackbox/blackbox.yml
     networks:
       - opentelemetry
-    profiles:
-      - all
-      - otel-all
-      - otel-prometheus
 
   prometheus:
     # https://github.com/prometheus/prometheus/releases
@@ -40,10 +36,6 @@ services:
         required: false
     networks:
       - opentelemetry
-    profiles:
-      - all
-      - otel-all
-      - otel-prometheus
 
   node-exporter:
     image: prom/node-exporter:v1.8.2
@@ -61,10 +53,6 @@ services:
       - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)"'
     networks:
       - opentelemetry
-    profiles:
-      - all
-      - otel-all
-      - otel-prometheus
 
 networks:
   opentelemetry:

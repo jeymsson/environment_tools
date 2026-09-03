@@ -1,6 +1,6 @@
 # Usage:
-# docker compose --profile all up -d
-# docker compose --profile k6-tests up -d
+# make up
+# make compose k6
 
 services:
   influxdb:
@@ -12,9 +12,6 @@ services:
       - 8086:8086
     environment:
       - INFLUXDB_DB=k6
-    profiles:
-      - all
-      - k6-tests
 
   k6:
     image: grafana/k6:master
@@ -28,9 +25,6 @@ services:
       - K6_OUT=influxdb=http://influxdb:8086/k6
     volumes:
       - ../config/k6/scripts:/scripts
-    profiles:
-      - all
-      - k6-tests
 
 networks:
   k6:

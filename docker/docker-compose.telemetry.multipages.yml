@@ -1,5 +1,6 @@
 # Usage:
-# docker compose --profile all up -d
+# make up
+# make compose multipages
 
 services:
   docker-ui:
@@ -10,6 +11,4 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: -H unix:///var/run/docker.sock
-    profiles:
-      - all
 
