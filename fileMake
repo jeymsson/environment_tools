@@ -1,4 +1,4 @@
-.PHONY: help create-network up down destroy rebuild compose logs otel otel-slim k6-tests sonarqube elk elk-down elk-destroy elk-gen-password man
+.PHONY: help create-network up down destroy rebuild compose logs ps otel otel-slim k6-tests sonarqube elkelk-gen-password man
 
 indent_style = tab
 
@@ -9,6 +9,9 @@ NC     := \033[0m
 
 # Arquivo compose da aplicação principal (usado só no "rebuild")
 COMPOSE_FILE = docker-compose.yml
+
+# Nome do projeto (usado no "ps" para listar todos os containers da stack de telemetria)
+PROJECT_NAME := telemetry
 
 # Mapeamento: palavra-chave -> arquivo(s) compose de telemetria
 # (equivalente aos antigos "include" + "--profile" do docker-compose.telemetry.all.yml)
@@ -60,52 +63,6 @@ rebuild: ## Reconstrói a aplicação principal
 	@echo "Reconstruindo os serviços com Docker Compose..."
 	docker compose -f $(COMPOSE_FILE) build
 
-compose: create-network ## Sobe combinando arquivos: make compose otel otel-slim jaeger
-	docker compose $(ENV_FILE) $(COMPOSE_FILES) up -d
-
-logs: ## Logs combinando arquivos: make logs otel-slim
-	docker compose $(ENV_FILE) $(COMPOSE_FILES) logs -f --tail=100
-
-up: create-network ## Sobe todos os serviços de telemetria
-	@echo "Subindo os serviços com Docker Compose..."
-	docker compose $(ALL) up -d
-
-down: ## Derruba todos os serviços de telemetria
-	@echo "Derrubando os serviços com Docker Compose..."
-	docker compose $(ALL) down --remove-orphans
-
-destroy: ## Destrói todos os serviços de telemetria (com volumes)
-	@echo "Destruindo os serviços com Docker Compose..."
-	docker compose $(ALL) down -v --remove-orphans
-
-otel: create-network ## Sobe aplicação com OpenTelemetry
-	docker compose $(FILES_otel) up -d
-
-otel-slim: create-network ## Sobe aplicação com OpenTelemetry Slim
-	docker compose $(FILES_otel-slim) up -d
-
-k6-tests: create-network ## Roda os testes com k6
-	docker compose $(FILES_k6) up -d --build
-
-sonarqube: create-network ## Sobe os serviços do SonarQube
-	docker compose $(FILES_sonarqube) up -d
-
-elk: create-network ## Sobe os serviços do ELK com opentelemetry
-	@echo "Subindo os serviços com Docker Compose..."
-	docker compose --env-file ./docker/envs/.env.elasticstack $(FILES_elk) up -d
-
-elk-down: ## Derruba os serviços do ELK com opentelemetry
-	@echo "Derrubando os serviços com Docker Compose..."
-	docker compose --env-file ./docker/envs/.env.elasticstack $(FILES_elk) down || true
-
-elk-destroy: ## Destroi os serviços do ELK com opentelemetry (com volumes)
-	@echo "Derrubando os serviços com Docker Compose..."
-	docker compose --env-file ./docker/envs/.env.elasticstack $(FILES_elk) down -v || true
-
-elk-gen-password: ## Gera a senha do Elasticsearch/Kibana
-	@echo "Gerando a senha do Elasticsearch/Kibana..."
-	docker compose --env-file ./docker/envs/.env.elasticstack $(FILES_elk) run --rm elasticsearch bin/elasticsearch-reset-password -u elastic
-
 man: ## Mostra instruções de uso
 	@echo "$(GREEN)Telemetria com OpenTelemetry.$(NC)"
 	@echo "Passos a seguir:"
@@ -127,3 +84,39 @@ man: ## Mostra instruções de uso
 	@echo "     $(GREEN) make compose otel-slim $(NC)"
 	@echo "     $(GREEN) make compose otel jaeger prometheus grafana $(NC)"
 	@echo "     $(GREEN) make logs otel-slim $(NC)"
+
+compose: create-network ## Sobe combinando arquivos: make compose otel otel-slim jaeger
+	docker compose -p $(PROJECT_NAME) $(ENV_FILE) $(COMPOSE_FILES) up -d
+
+logs: ## Logs combinando arquivos: make logs otel-slim
+	docker compose -p $(PROJECT_NAME) $(ENV_FILE) $(COMPOSE_FILES) logs -f --tail=100
+
+up: create-network ## Sobe todos os serviços de telemetria
+	docker compose -p $(PROJECT_NAME) $(ALL) up -d
+
+down: ## Derruba todos os serviços de telemetria
+	docker compose -p $(PROJECT_NAME) $(ALL) down --remove-orphans
+
+destroy: ## Destrói todos os serviços de telemetria (com volumes)
+	@echo "$(RED)Aviso: todos os volumes serão removidos!$(NC)"
+	@read -p "Tem certeza que deseja continuar? (s/n): " confirm && [ "$$confirm" = "s" ] || exit 1
+	@echo "$(YELLOW) -> Iniciando destruição dos serviços de telemetria e remoção de volumes...$(NC)"
+	@docker compose -p $(PROJECT_NAME) $(ALL) down -v --remove-orphans
+	@echo "$(YELLOW) -> Finalizado$(NC)"
+	$(MAKE) ps
+
+otel: create-network ## Sobe aplicação com OpenTelemetry
+	docker compose -p $(PROJECT_NAME) $(FILES_otel) up -d
+
+otel-slim: create-network ## Sobe aplicação com OpenTelemetry Slim
+	docker compose -p $(PROJECT_NAME) $(FILES_otel-slim) up -d
+
+k6-tests: create-network ## Roda os testes com k6
+	docker compose -p $(PROJECT_NAME) $(FILES_k6) up -d --build
+
+sonarqube: create-network ## Sobe os serviços do SonarQube
+	docker compose -p $(PROJECT_NAME) $(FILES_sonarqube) up -d
+
+ps: ## Lista os containers da stack de telemetria (todos os arquivos)
+	@echo "     $(GREEN) Docker ps da stack de telemetria ($(PROJECT_NAME)): $(NC)"
+	@docker compose -p $(PROJECT_NAME) $(ALL) ps --format "table {{.Name}}\t{{.Service}}\t{{.Image}}\t{{.State}}\t{{.Status}}"
