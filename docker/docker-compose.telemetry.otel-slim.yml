@@ -34,7 +34,8 @@ services:
       - "8889:8889"   # Exporter Prometheus
       - "13133:13133" # Health Check
     depends_on:
-      - lgtm
+      lgtm:
+        condition: service_healthy
     networks:
       - opentelemetry
 
@@ -49,9 +50,15 @@ services:
     #   # Desabilita o acesso anônimo com papel Admin que vem por padrão na imagem
     #   - GF_AUTH_ANONYMOUS_ENABLED=false
     #   - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-    #   - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?defina GRAFANA_ADMIN_PASSWORD no .env}
+    #   - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
     networks:
       - opentelemetry
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
 networks:
   opentelemetry:
