@@ -49,7 +49,7 @@ processors:
         - span.name.original   # nome original do span
         - host.location        # atributo inserido no processor acima
       separator: ":"            # concatena os dois valores usando ":" como separador
-                                  # resultado, ex.: "nome-original:homo"
+                                  # resultado, ex.: "nome-original:env_HOST_LOCATION"
 
 exporters:
 

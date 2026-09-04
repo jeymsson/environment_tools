@@ -16,8 +16,8 @@ PROJECT_NAME := telemetry
 # Mapeamento: palavra-chave -> arquivo(s) compose de telemetria
 # (equivalente aos antigos "include" + "--profile" do docker-compose.telemetry.all.yml)
 FILES_multipages  = -f docker/docker-compose.telemetry.multipages.yml
-FILES_otel        = -f docker/docker-compose.telemetry.otel.yml
-FILES_otel-slim   = -f docker/docker-compose.telemetry.otel-slim.yml
+FILES_otel        = -f docker/otel/docker-compose.otel.yml
+FILES_otel-slim   = -f docker/otel/docker-compose.otel-slim.yml
 FILES_jaeger      = -f docker/docker-compose.telemetry.jaeger.yml
 FILES_prometheus  = -f docker/docker-compose.telemetry.prometheus.yml
 FILES_grafana     = -f docker/docker-compose.telemetry.grafana.yml
@@ -120,3 +120,4 @@ sonarqube: create-network ## Sobe os serviços do SonarQube
 ps: ## Lista os containers da stack de telemetria (todos os arquivos)
 	@echo "     $(GREEN) Docker ps da stack de telemetria ($(PROJECT_NAME)): $(NC)"
 	@docker compose -p $(PROJECT_NAME) $(ALL) ps --format "table {{.Name}}\t{{.Service}}\t{{.Image}}\t{{.State}}\t{{.Status}}"
+
