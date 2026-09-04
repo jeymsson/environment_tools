@@ -128,10 +128,10 @@ destroy: ## Destrói todos os serviços de telemetria (com volumes)
 	$(MAKE) ps
 
 otel: create-network ## Sobe aplicação com OpenTelemetry
-	docker compose -p $(PROJECT_NAME) $(FILES_otel) up -d
+	docker compose -p $(PROJECT_NAME) --env-file docker/otel/.env $(FILES_otel) $(GRAFANA_FILES) up -d
 
 otel-slim: create-network ## Sobe aplicação com OpenTelemetry Slim
-	docker compose -p $(PROJECT_NAME) $(FILES_otel-slim) up -d
+	docker compose -p $(PROJECT_NAME) --env-file docker/otel/.env $(FILES_otel-slim) $(GRAFANA_FILES) up -d
 
 otel-metrics: create-network ## Sobe OTel Metrics + Prometheus Exporter. Uso: make otel-metrics [dev|prod]
 	docker compose -p $(PROJECT_NAME) --env-file docker/otel/.env $(FILES_otel-metrics) $(GRAFANA_FILES) up -d
