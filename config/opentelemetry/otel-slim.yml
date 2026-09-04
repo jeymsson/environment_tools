@@ -1,6 +1,7 @@
 # ============================================================
 # Configuração do OpenTelemetry Collector (perfil "slim")
-# Recebe telemetria via OTLP e exporta para debug, Prometheus e LGTM (Grafana)
+# Recebe telemetria via OTLP + coleta métricas do host,
+# exportando para debug, Prometheus e LGTM (Grafana)
 # ============================================================
 
 receivers:
@@ -13,6 +14,20 @@ receivers:
       # Endpoint HTTP (porta 4318) — alternativa via REST/protobuf ou JSON
       http:
         endpoint: otel-collector-slim:4318
+
+  # Receiver hostmetrics: coleta métricas do host (CPU, memória, disco, rede etc.)
+  # Depende dos volumes /proc, /sys e / montados como /hostfs no docker-compose
+  hostmetrics:
+    collection_interval: 15s   # intervalo entre coletas
+    root_path: /hostfs         # raiz do filesystem do host, montada no container
+    scrapers:
+      cpu:                      # uso de CPU por núcleo/estado
+      memory:                   # uso de memória (usada, livre, cache, etc.)
+      disk:                     # I/O de disco (leitura/escrita)
+      filesystem:                # uso de espaço em disco por partição
+      network:                  # tráfego de rede por interface
+      load:                     # load average (1m, 5m, 15m)
+      paging:                   # uso de swap/paginação
 
 processors:
   # Agrupa os dados em lotes antes de exportar, reduzindo overhead de rede
@@ -83,9 +98,12 @@ service:
         - otlp/lgtm             # envia para o Tempo (via LGTM)
 
     # Pipeline de MÉTRICAS
+    # Inclui tanto o otlp (métricas enviadas por apps instrumentadas)
+    # quanto o hostmetrics (métricas coletadas direto do host)
     metrics:
       receivers:
         - otlp
+        - hostmetrics
       processors:
         - batch                # aqui não passa por "attributes"/"span",
                                   # pois esses processors foram feitos pensando em spans

@@ -10,10 +10,23 @@ services:
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ../config/opentelemetry/otel-slim.yml:/etc/otel-collector-config.yaml:ro
+      # Monta o filesystem do host (somente leitura) para o receiver hostmetrics
+      # conseguir ler métricas reais do host, e não apenas do container
+      - /proc:/hostfs/proc:ro
+      - /sys:/hostfs/sys:ro
+      - /:/hostfs:ro
     restart: unless-stopped
     environment:
       - OTELCOL_LOG_LEVEL=debug
       - HOST_LOCATION=${HOST_LOCATION:-NAO-ADICIONADO}  # Valor resolvido em runtime e usado no atributo host.location do collector.
+      # Variáveis usadas pelos scrapers do hostmetrics para localizar os
+      # arquivos reais do host dentro do container (via /hostfs)
+      - HOST_PROC=/hostfs/proc
+      - HOST_SYS=/hostfs/sys
+      - HOST_ETC=/hostfs/etc
+      - HOST_VAR=/hostfs/var
+      - HOST_RUN=/hostfs/run
+      - HOST_DEV=/hostfs/dev
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
