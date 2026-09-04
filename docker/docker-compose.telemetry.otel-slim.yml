@@ -45,6 +45,11 @@ services:
     restart: unless-stopped
     ports:
       - "4000:3000" # Interface do Grafana
+    # environment:
+    #   # Desabilita o acesso anônimo com papel Admin que vem por padrão na imagem
+    #   - GF_AUTH_ANONYMOUS_ENABLED=false
+    #   - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+    #   - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?defina GRAFANA_ADMIN_PASSWORD no .env}
     networks:
       - opentelemetry
 
