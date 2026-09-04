@@ -1,0 +1,4 @@
+services:
+  lgtm:
+    labels:
+      - "traefik.http.routers.router-host-grafana.tls.certresolver=letsencrypt"

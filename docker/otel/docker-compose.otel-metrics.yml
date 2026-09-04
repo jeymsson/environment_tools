@@ -1,0 +1,111 @@
+# Usage:
+# make up
+# make otel-metrics dev
+# make otel-metrics prod
+# make otel-metrics          # sem profile — lgtm sobe, mas sem exposição via Traefik
+
+networks:
+  opentelemetry:
+    external: true
+
+x-common: &common
+  restart: unless-stopped
+  stop_grace_period: 10s
+  networks:
+    - opentelemetry
+
+services:
+  otel-collector-metrics:
+    image: otel/opentelemetry-collector-contrib:0.113.0
+    container_name: otel-collector-metrics
+    <<: *common
+    hostname: otel-collector-metrics
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Métricas do Collector
+      - "8889:8889"   # Exporter Prometheus
+      - "13133:13133" # Health Check    restart: unless-stopped
+    environment:
+      - OTELCOL_LOG_LEVEL=debug
+      - HOST_LOCATION=${HOST_LOCATION:-NAO-ADICIONADO}  # Valor resolvido em runtime e usado no atributo host.location do collector.
+      # Variáveis usadas pelos scrapers do hostmetrics para localizar os arquivos reais do host dentro do container (via /hostfs)
+      - HOST_PROC=/hostfs/proc
+      - HOST_SYS=/hostfs/sys
+      - HOST_ETC=/hostfs/etc
+      - HOST_VAR=/hostfs/var
+      - HOST_RUN=/hostfs/run
+      - HOST_DEV=/hostfs/dev
+    volumes:
+      - ./config/opentelemetry/otel-metrics.yml:/etc/otel-collector-config.yaml:ro
+      # Monta o filesystem do host (somente leitura) para o receiver hostmetrics conseguir ler métricas reais do host, e não apenas do container
+      - /proc:/hostfs/proc:ro
+      - /sys:/hostfs/sys:ro
+      - /:/hostfs:ro
+    depends_on:
+      lgtm:
+        condition: service_healthy
+
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: lgtm
+    <<: *common
+    hostname: lgtm
+    ports:
+      - "4000:3000" # Interface do Grafana
+    environment:
+      # Desabilita o acesso anônimo com papel Admin que vem por padrão na imagem
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      # Monta os dashboards customizados do Grafana (somente leitura) para o container do Grafana
+      - ./config/grafana/dashboards-provisioning.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/custom.yaml:ro
+      - ./config/grafana/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards/custom:ro
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      # start_period: 10s
+
+  # Serve as métricas do host (CPU, memória, disco, rede, etc.) para o Prometheus
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    <<: *common
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # Exporta métricas do estado do Docker para o Prometheus
+  docker-state-exporter:
+    image: olegarh2916/docker-state-exporter
+    container_name: docker-state-exporter
+    <<: *common
+    environment:
+      - DOCKER_API_VERSION=1.44
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # Exporta métricas do estado do Docker para o Prometheus
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    <<: *common
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'

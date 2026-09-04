@@ -1,0 +1,22 @@
+services:
+  lgtm:
+    ports: !reset []
+    networks:
+      - net-traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.srv-grafana.loadbalancer.server.port=3000"
+
+      # Middlewares (Sem middlewares)
+
+      # Router: host (variavel TRAEFIK_DNS) - prioridade 10
+      - "traefik.docker.network=net-traefik-public"
+      - "traefik.http.routers.router-host-grafana.rule=Host(`${TRAEFIK_DNS}`)"
+      - "traefik.http.routers.router-host-grafana.entrypoints=web,websecure"
+      - "traefik.http.routers.router-host-grafana.tls=true"
+      - "traefik.http.routers.router-host-grafana.service=srv-grafana"
+      - "traefik.http.routers.router-host-grafana.priority=10"
+
+networks:
+  net-traefik-public:
+    external: true

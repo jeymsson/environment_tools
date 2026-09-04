@@ -1,0 +1,141 @@
+# ============================================================
+# Configuração do OpenTelemetry Collector (perfil "metrics")
+# Recebe telemetria via OTLP + coleta métricas do host,
+# exportando para debug, Prometheus e LGTM (Grafana)
+# ============================================================
+
+receivers:
+  # Receiver OTLP: recebe traces, metrics e logs enviados pelas aplicações
+  otlp:
+    protocols:
+      # Endpoint gRPC (porta 4317) — mais eficiente, usado por SDKs OTLP nativos
+      grpc:
+        endpoint: otel-collector-metrics:4317
+      # Endpoint HTTP (porta 4318) — alternativa via REST/protobuf ou JSON
+      http:
+        endpoint: otel-collector-metrics:4318
+  
+  prometheus/exporters:
+    config:
+      scrape_configs:
+        - job_name: cadvisor
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["cadvisor:8080"]
+
+        - job_name: docker-state-exporter
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["docker-state-exporter:8080"]
+
+        - job_name: node-exporter
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["node-exporter:9100"]
+
+  # Receiver hostmetrics: coleta métricas do host (CPU, memória, disco, rede etc.)
+  # Depende dos volumes /proc, /sys e / montados como /hostfs no docker-compose
+  hostmetrics:
+    collection_interval: 15s   # intervalo entre coletas
+    root_path: /hostfs         # raiz do filesystem do host, montada no container
+    scrapers:
+      cpu:                      # uso de CPU por núcleo/estado
+      memory:                   # uso de memória (usada, livre, cache, etc.)
+      disk:                     # I/O de disco (leitura/escrita)
+      filesystem:                # uso de espaço em disco por partição
+      network:                  # tráfego de rede por interface
+      load:                     # load average (1m, 5m, 15m)
+      paging:                   # uso de swap/paginação
+
+processors:
+  # Agrupa os dados em lotes antes de exportar, reduzindo overhead de rede
+  batch:
+    timeout: 10s  # tempo máximo de espera antes de enviar um lote, mesmo incompleto
+
+  # Adiciona (insere) um atributo customizado em todos os dados que passam por aqui
+  # O valor pode ser definido em runtime via variável de ambiente do container.
+  attributes:
+    actions:
+      - key: host.location      # nome do atributo a ser criado
+        action: insert           # insere somente se o atributo ainda não existir
+        value: ${env:HOST_LOCATION}   # se a variável estiver vazia, o compose já envia "NAO-ADICIONADO"
+
+  # Processor específico para spans (traces): renomeia o span combinando atributos
+  span:
+    name:
+      from_attributes:
+        - span.name.original   # nome original do span
+        - host.location        # atributo inserido no processor acima
+      separator: ":"            # concatena os dois valores usando ":" como separador
+                                  # resultado, ex.: "nome-original:env_HOST_LOCATION"
+
+exporters:
+
+  # Exporter de debug: imprime os dados recebidos no log do collector (stdout)
+  # Útil para inspecionar rapidamente o que está chegando, sem depender de backend externo
+  debug:
+    verbosity: detailed        # nível de detalhe do log (basic | normal | detailed)
+    sampling_initial: 1        # quantas mensagens iniciais são sempre logadas
+    sampling_thereafter: 1     # a cada quantas mensagens subsequentes uma é logada (1 = todas)
+
+  # Exporter Prometheus: expõe métricas em formato Prometheus para scraping
+  prometheus:
+    endpoint: 0.0.0.0:8889     # porta onde as métricas ficam disponíveis (/metrics)
+                                  # 0.0.0.0 expõe em todas as interfaces de rede do container
+
+  # Exporter OTLP apontando para o LGTM (stack Loki+Grafana+Tempo+Mimir da Grafana)
+  # É o backend real que este perfil "metrics" usa para armazenar/visualizar telemetria
+  otlp/lgtm:
+    endpoint: lgtm:4317         # nome do serviço "lgtm" na rede docker, porta OTLP gRPC
+    tls:
+      insecure: true             # desabilita TLS (ok em ambiente local/dev, dentro da rede docker)
+
+extensions:
+  # Extensão de health check: expõe endpoint HTTP (porta 13133) para verificar
+  # se o collector está saudável — usado por orquestradores (docker, k8s) ou monitoramento
+  health_check:
+
+service:
+  # Extensões ativas nesta instância do collector
+  extensions:
+    - health_check
+
+  # Pipelines: definem o fluxo receiver -> processor -> exporter para cada tipo de sinal
+  pipelines:
+
+    # Pipeline de TRACES (rastreamento distribuído)
+    traces:
+      receivers:
+        - otlp                 # recebe via OTLP (gRPC/HTTP)
+      processors:
+        - batch                # agrupa em lotes
+        - attributes            # insere host.location
+        - span                  # renomeia o span usando os atributos
+      exporters:
+        - debug                 # loga no console
+        - otlp/lgtm             # envia para o Tempo (via LGTM)
+
+    # Pipeline de MÉTRICAS
+    # Inclui tanto o otlp (métricas enviadas por apps instrumentadas)
+    # quanto o hostmetrics (métricas coletadas direto do host)
+    metrics:
+      receivers:
+        - otlp
+        - hostmetrics
+        - prometheus/exporters   # <- novo
+      processors:
+        - batch                # aqui não passa por "attributes"/"span",
+                                  # pois esses processors foram feitos pensando em spans
+      exporters:
+        - prometheus             # expõe via /metrics (scraping)
+        - otlp/lgtm               # também envia para o Mimir (via LGTM)
+
+    # Pipeline de LOGS
+    logs:
+      receivers:
+        - otlp
+      processors:
+        - batch
+      exporters:
+        - debug                 # loga no console
+        - otlp/lgtm             # envia para o Loki (via LGTM)
