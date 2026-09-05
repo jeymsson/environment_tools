@@ -3,6 +3,17 @@
 # make compose elk
 # alterar senha: bin/elasticsearch-reset-password
 
+volumes:
+  elasticsearch-data: {}
+  kibanadata:
+    driver: local
+
+networks:
+  nw_elk:
+    driver: bridge
+  opentelemetry:
+    external: true
+
 x-common: &common
   restart: unless-stopped
   stop_grace_period: 10s
@@ -24,7 +35,7 @@ services:
       xpack.security.authc.api_key.enabled: true # Necessary for APM
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
-      - ../config/elk/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ./config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
     ulimits:
       memlock:
         soft: -1
@@ -49,7 +60,7 @@ services:
       ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD}
     volumes:
       - kibanadata:/usr/share/kibana/data
-      - ../config/elk/kibana.yml:/usr/share/kibana/config/kibana.yml
+      - ./config/kibana.yml:/usr/share/kibana/config/kibana.yml
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -71,7 +82,7 @@ services:
     environment:
         - LOG_LEVEL=debug
     volumes:
-      - ../config/elk/apm-server.yml:/usr/share/apm-server/apm-server.yml
+      - ./config/apm-server.yml:/usr/share/apm-server/apm-server.yml
     command: --strict.perms=false
     cap_add: ["ALL"]
     healthcheck:
@@ -90,7 +101,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
       - /proc:/hostfs/proc:ro
-      - ../config/elk/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
+      - ./config/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
     command: ["--strict.perms=false"]
     depends_on:
       elasticsearch:
@@ -109,7 +120,7 @@ services:
       ELASTICSEARCH_HOSTS: elasticsearch:9200
       KIBANA_HOSTS: kibana:5601
     volumes:
-      - ../config/elk/heartbeat.yml:/usr/share/heartbeat/heartbeat.yml:ro
+      - ./config/heartbeat.yml:/usr/share/heartbeat/heartbeat.yml:ro
     command: ["--strict.perms=false"]
     cap_add:
       - NET_RAW
@@ -124,7 +135,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ../config/elk/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
     command: ["--strict.perms=false"]
 
   logstash:
@@ -134,8 +145,8 @@ services:
       - ${LOGSTASH_PORT}:5044
       - ${LOGSTASH_API_PORT}:9600
     volumes:
-      - ../config/elk/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
-      - ../config/elk/pipeline:/usr/share/logstash/pipeline
+      - ./config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./config/pipeline:/usr/share/logstash/pipeline
 
   auditbeat:
     image: elastic/auditbeat:${AUDITBEAT_TAG}
@@ -147,19 +158,8 @@ services:
       KIBANA_HOSTS: kibana:5601
       TINI_SUBREAPER: 1
     volumes:
-      - ../config/elk/auditbeat.yml:/usr/share/auditbeat/auditbeat.yml:ro
+      - ./config/auditbeat.yml:/usr/share/auditbeat/auditbeat.yml:ro
     command: ["--strict.perms=false"]
     cap_add:
       - AUDIT_CONTROL
       - AUDIT_READ
-
-volumes:
-  elasticsearch-data: {}
-  kibanadata:
-    driver: local
-
-networks:
-  nw_elk:
-    driver: bridge
-  opentelemetry:
-    external: true

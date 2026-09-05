@@ -1,0 +1,22 @@
+services:
+  kibana:
+    ports: !reset []
+    networks:
+      - net-traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.srv-kibana.loadbalancer.server.port=5601"
+
+      # Middlewares (Sem middlewares)
+
+      # Router: host (variavel TRAEFIK_DNS) - prioridade 10
+      - "traefik.docker.network=net-traefik-public"
+      - "traefik.http.routers.router-host-kibana.rule=Host(`${TRAEFIK_DNS}`)"
+      - "traefik.http.routers.router-host-kibana.entrypoints=web,websecure"
+      - "traefik.http.routers.router-host-kibana.tls=true"
+      - "traefik.http.routers.router-host-kibana.service=srv-kibana"
+      - "traefik.http.routers.router-host-kibana.priority=10"
+
+networks:
+  net-traefik-public:
+    external: true

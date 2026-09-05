@@ -1,0 +1,4 @@
+services:
+  kibana:
+    labels:
+      - "traefik.http.routers.router-host-kibana.tls.certresolver=letsencrypt"
