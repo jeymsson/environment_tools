@@ -1,11 +1,9 @@
-.PHONY: help create-network up down destroy rebuild compose logs ps otel otel-slim otel-metrics elk k6-tests sonarqube elk-gen-password man
+MAKEFLAGS += --no-print-directory
 
-indent_style = tab
+.PHONY: help man create-network list ps logs down destroy
+.PHONY: compose up otel otel-slim otel-metrics elk
 
-RED    := \033[0;31m
-GREEN  := \033[0;32m
-YELLOW := \033[0;33m
-NC     := \033[0m
+.DEFAULT_GOAL := help
 
 # Nome do projeto (usado no "ps" para listar todos os containers da stack de telemetria)
 PROJECT_NAME := telemetry
@@ -19,8 +17,6 @@ FILES_jaeger       = -f docker/jaeger/docker-compose.yml
 FILES_elk          = --env-file docker/elk/.env -f docker/elk/docker-compose.yml
 
 ALL = $(FILES_otel) $(FILES_jaeger) $(FILES_k6) $(FILES_elk) $(FILES_otel-slim) $(FILES_otel-metrics)
-
-
 
 # --- Resolução padronizada dos arquivos de Traefik (dev|prod) por família ---
 # Cada família de serviço que suporta exposição via Traefik aponta para a
@@ -50,19 +46,29 @@ TRAEFIK_FILES := $(if $(filter prod,$(MAKECMDGOALS)),$(FILES_prod),$(if $(filter
 # pois são usadas como seletor de ambiente (dev|prod), não como arquivo compose.
 PROFILE_KEYWORDS := dev prod
 
-
-
-
 # Captura os argumentos extras passados depois do target (ex: otel otel-slim jaeger)
 # Exclui as palavras reservadas de profile, para não tentar resolver FILES_dev / FILES_prod
 ARGS := $(filter-out compose logs ps $(PROFILE_KEYWORDS),$(MAKECMDGOALS))
 COMPOSE_FILES := $(foreach a,$(ARGS),$(FILES_$(a)))
 
+# Definição das cores
+RED    := \033[0;31m
+GREEN  := \033[0;32m
+YELLOW := \033[0;33m
+ORANGE := \033[38;5;214m
+NC     := \033[0m # Sem cor / Reset
+
+# Helpers de log: imprimem [alvo] -> mensagem (evite vírgulas na mensagem)
+log_info  = @echo "$(ORANGE)[$@]$(GREEN) -> $(1)$(NC)"
+log_warn  = @echo "$(ORANGE)[$@]$(YELLOW) -> $(1)$(NC)"
+log_error = @echo "$(ORANGE)[$@]$(RED) -> $(1)$(NC)"
+
 # Impede o Make de reclamar "No rule to make target 'otel-slim'" etc
 %:
 	@:
 
-help: ## Lista os targets disponíveis
+# COMMON
+help:  ## Lista os targets disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 	awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
@@ -82,13 +88,7 @@ help: ## Lista os targets disponíveis
 # make ps
 # make destroy
 
-create-network: ## Cria a rede 'opentelemetry' se não existir
-	@if ! docker network inspect opentelemetry >/dev/null 2>&1; then \
-		echo "Rede 'opentelemetry' não encontrada. Criando rede..."; \
-		docker network create opentelemetry; \
-	fi
-
-man: ## Mostra instruções de uso
+man:  ## Mostra instruções de uso
 	@echo "$(GREEN)Telemetria com OpenTelemetry.$(NC)"
 	@echo "Passos a seguir:"
 	@echo "."
@@ -118,42 +118,63 @@ man: ## Mostra instruções de uso
 	@echo "      $(GREEN) make otel-metrics prod $(NC)"
 	@echo "      $(GREEN) make elk dev $(NC)"
 
-compose: create-network ## Sobe combinando arquivos: make compose otel otel-slim jaeger
-	docker compose -p $(PROJECT_NAME) $(COMPOSE_FILES) up -d
+create-network:  ## Cria a rede 'opentelemetry' se não existir
+	@if ! docker network inspect opentelemetry >/dev/null 2>&1; then \
+		echo "$(ORANGE)[$@]$(YELLOW) -> Rede 'opentelemetry' não encontrada. Criando rede...$(NC)"; \
+		docker network create opentelemetry; \
+	fi
 
-logs: ## Logs combinando arquivos: make logs otel-slim
-	docker compose -p $(PROJECT_NAME) $(COMPOSE_FILES) logs -f --tail=100
+list:  ## Lista todos os containers do host em formato de tabela
+	$(call log_info,Docker ps -a (todos os containers do host):)
+	@docker ps -a --format "table {{.Names}}\t{{.ID}}\t{{.Label \"com.docker.compose.service\"}}\t{{.Label \"com.docker.compose.project\"}}\t{{.Image}}\t{{.State}}\t{{.Status}}"
 
-up: create-network ## Sobe todos os serviços de telemetria
-	docker compose -p $(PROJECT_NAME) $(ALL) up -d
-
-down: ## Derruba todos os serviços de telemetria
-	docker compose -p $(PROJECT_NAME) $(ALL) down --remove-orphans
-
-destroy: ## Destrói todos os serviços de telemetria (com volumes)
-	@echo "$(RED)Aviso: todos os volumes serão removidos!$(NC)"
-	@read -p "Tem certeza que deseja continuar? (s/n): " confirm && [ "$$confirm" = "s" ] || exit 1
-	@echo "$(YELLOW) -> Iniciando destruição dos serviços de telemetria e remoção de volumes...$(NC)"
-	@docker compose -p $(PROJECT_NAME) $(ALL) down -v --remove-orphans
-	@echo "$(YELLOW) -> Finalizado$(NC)"
-	$(MAKE) ps
-
-otel: create-network ## Sobe aplicação com OpenTelemetry. Uso: make otel [dev|prod]
-	docker compose -p $(PROJECT_NAME) $(FILES_otel) $(TRAEFIK_FILES) up -d
-
-otel-slim: create-network ## Sobe aplicação com OpenTelemetry Slim. Uso: make otel-slim [dev|prod]
-	docker compose -p $(PROJECT_NAME) $(FILES_otel-slim) $(TRAEFIK_FILES) up -d
-
-otel-metrics: create-network ## Sobe OTel Metrics + Prometheus Exporter. Uso: make otel-metrics [dev|prod]
-	docker compose -p $(PROJECT_NAME) $(FILES_otel-metrics) $(TRAEFIK_FILES) up -d
-
-elk: create-network ## Sobe a stack ELK. Uso: make elk [dev|prod]
-	docker compose -p $(PROJECT_NAME) $(FILES_elk) $(TRAEFIK_FILES) up -d
-
-ps: ## Lista os containers da stack de telemetria (todos os arquivos)
-	@echo "     $(GREEN) Docker ps da stack de telemetria ($(PROJECT_NAME)): $(NC)"
+ps:  ## Lista os containers da stack de telemetria (todos os arquivos)
+	$(call log_info,Docker ps da stack de telemetria ($(PROJECT_NAME)):)
 	@docker compose -p $(PROJECT_NAME) $(ALL) ps --format "table {{.Name}}\t{{.ID}}\t{{.Service}}\t{{.Image}}\t{{.State}}\t{{.Status}}"
 
-list: ## Lista todos os containers do host em formato de tabela
-	@echo "     $(GREEN) Docker ps -a (todos os containers do host): $(NC)"
-	@docker ps -a --format "table {{.Names}}\t{{.ID}}\t{{.Label \"com.docker.compose.service\"}}\t{{.Label \"com.docker.compose.project\"}}\t{{.Image}}\t{{.State}}\t{{.Status}}"
+logs:  ## Logs combinando arquivos: make logs otel-slim
+	$(call log_info,Exibindo logs: $(ARGS))
+	@docker compose -p $(PROJECT_NAME) $(COMPOSE_FILES) logs -f --tail=100
+
+down:  ## Derruba todos os serviços de telemetria
+	$(call log_error,Derrubando serviços de telemetria...)
+	@docker compose -p $(PROJECT_NAME) $(ALL) down --remove-orphans
+
+destroy:  ## Destrói todos os serviços de telemetria (com volumes)
+	$(call log_error,Aviso: todos os volumes serão removidos!)
+	@printf "Tem certeza que deseja continuar? (s/n): "; read confirm; [ "$$confirm" = "s" ] || exit 1
+	$(call log_warn,Destruindo serviços de telemetria e removendo volumes...)
+	@docker compose -p $(PROJECT_NAME) $(ALL) down -v --remove-orphans
+	$(call log_info,Finalizado)
+	@$(MAKE) ps
+
+# STACKS
+compose: create-network  ## Sobe combinando arquivos: make compose otel otel-slim jaeger
+	$(call log_warn,Subindo: $(ARGS))
+	@docker compose -p $(PROJECT_NAME) $(COMPOSE_FILES) up -d
+	$(call log_info,Containers iniciados: $(ARGS))
+
+up: create-network  ## Sobe todos os serviços de telemetria
+	$(call log_warn,Subindo todos os serviços de telemetria...)
+	@docker compose -p $(PROJECT_NAME) $(ALL) up -d
+	$(call log_info,Containers iniciados)
+
+otel: create-network  ## Sobe aplicação com OpenTelemetry. Uso: make otel [dev|prod]
+	$(call log_warn,Subindo OpenTelemetry)
+	@docker compose -p $(PROJECT_NAME) $(FILES_otel) $(TRAEFIK_FILES) up -d
+	$(call log_info,Containers iniciados)
+
+otel-slim: create-network  ## Sobe aplicação com OpenTelemetry Slim. Uso: make otel-slim [dev|prod]
+	$(call log_warn,Subindo OpenTelemetry Slim)
+	@docker compose -p $(PROJECT_NAME) $(FILES_otel-slim) $(TRAEFIK_FILES) up -d
+	$(call log_info,Containers iniciados)
+
+otel-metrics: create-network  ## Sobe OTel Metrics + Prometheus Exporter. Uso: make otel-metrics [dev|prod]
+	$(call log_warn,Subindo OTel Metrics)
+	@docker compose -p $(PROJECT_NAME) $(FILES_otel-metrics) $(TRAEFIK_FILES) up -d
+	$(call log_info,Containers iniciados)
+
+elk: create-network  ## Sobe a stack ELK. Uso: make elk [dev|prod]
+	$(call log_warn,Subindo stack ELK)
+	@docker compose -p $(PROJECT_NAME) $(FILES_elk) $(TRAEFIK_FILES) up -d
+	$(call log_info,Containers iniciados)
