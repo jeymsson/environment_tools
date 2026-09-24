@@ -8,13 +8,18 @@ MAKEFLAGS += --no-print-directory
 # Nome do projeto (usado no "ps" para listar todos os containers da stack de telemetria)
 PROJECT_NAME := telemetry
 
+# --env-file só é passado se o arquivo existir, para que "make down"/"make destroy"
+# funcionem mesmo antes do setup (.env ainda não criado)
+ENV_otel = $(if $(wildcard docker/otel/.env),--env-file docker/otel/.env)
+ENV_elk  = $(if $(wildcard docker/elk/.env),--env-file docker/elk/.env)
+
 # Mapeamento: palavra-chave -> arquivo(s) compose de telemetria (equivalente aos antigos "include" + "--profile" do docker-compose.telemetry.all.yml)
-FILES_otel         = --env-file docker/otel/.env -f docker/otel/docker-compose.otel.yml
-FILES_otel-slim    = --env-file docker/otel/.env -f docker/otel/docker-compose.otel-slim.yml
-FILES_otel-metrics = --env-file docker/otel/.env -f docker/otel/docker-compose.otel-metrics.yml
+FILES_otel         = $(ENV_otel) -f docker/otel/docker-compose.otel.yml
+FILES_otel-slim    = $(ENV_otel) -f docker/otel/docker-compose.otel-slim.yml
+FILES_otel-metrics = $(ENV_otel) -f docker/otel/docker-compose.otel-metrics.yml
 FILES_k6           = -f docker/k6/docker-compose.yml
 FILES_jaeger       = -f docker/jaeger/docker-compose.yml
-FILES_elk          = --env-file docker/elk/.env -f docker/elk/docker-compose.yml
+FILES_elk          = $(ENV_elk) -f docker/elk/docker-compose.yml
 
 ALL = $(FILES_otel) $(FILES_jaeger) $(FILES_k6) $(FILES_elk) $(FILES_otel-slim) $(FILES_otel-metrics)
 
@@ -52,16 +57,21 @@ ARGS := $(filter-out compose logs ps $(PROFILE_KEYWORDS),$(MAKECMDGOALS))
 COMPOSE_FILES := $(foreach a,$(ARGS),$(FILES_$(a)))
 
 # Definição das cores
-RED    := \033[0;31m
-GREEN  := \033[0;32m
-YELLOW := \033[0;33m
-ORANGE := \033[38;5;214m
-NC     := \033[0m # Sem cor / Reset
+RED     := \033[0;31m
+GREEN   := \033[0;32m
+YELLOW  := \033[0;33m
+ORANGE  := \033[38;5;214m
+NC      := \033[0m # Sem cor / Reset
 
-# Helpers de log: imprimem [alvo] -> mensagem (evite vírgulas na mensagem)
-log_info  = @echo "$(ORANGE)[$@]$(GREEN) -> $(1)$(NC)"
-log_warn  = @echo "$(ORANGE)[$@]$(YELLOW) -> $(1)$(NC)"
-log_error = @echo "$(ORANGE)[$@]$(RED) -> $(1)$(NC)"
+# Nome do diretório atual, usado para prefixar os logs (ex.: environment_tools)
+DIRNAME := $(notdir $(CURDIR))
+
+# Helpers de log: imprimem [dir](alvo) -> mensagem (evite vírgulas na mensagem)
+log_info   = @echo "📝 $(ORANGE)[$(DIRNAME)]$(YELLOW)($@)$(GREEN) $(1)$(NC)"
+log_warn   = @echo "⚠️  $(ORANGE)[$(DIRNAME)]$(YELLOW)($@)$(YELLOW) $(1)$(NC)"
+log_down   = @echo "🔥 $(ORANGE)[$(DIRNAME)]$(YELLOW)($@)$(RED) $(1)$(NC)"
+log_error  = @echo "❌ $(ORANGE)[$(DIRNAME)]$(YELLOW)($@)$(RED) $(1)$(NC)"
+log_title  = @echo "🟢 -> $(ORANGE)[$(DIRNAME)]$(YELLOW)($@)$(ORANGE)	->	$(1)$(NC)"
 
 # Impede o Make de reclamar "No rule to make target 'otel-slim'" etc
 %:
@@ -69,8 +79,10 @@ log_error = @echo "$(ORANGE)[$@]$(RED) -> $(1)$(NC)"
 
 # COMMON
 help:  ## Lista os targets disponíveis
+	$(call log_title,Targets:)
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 	awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
+	$(call log_info,Para mais informações rode: $(YELLOW)make man)
 
 # # Como usar
 # make compose otel
@@ -89,7 +101,8 @@ help:  ## Lista os targets disponíveis
 # make destroy
 
 man:  ## Mostra instruções de uso
-	@echo "$(GREEN)Telemetria com OpenTelemetry.$(NC)"
+	@echo ""
+	$(call log_title,Telemetria com OpenTelemetry:)
 	@echo "Passos a seguir:"
 	@echo "."
 	@echo " Setup"
@@ -117,10 +130,11 @@ man:  ## Mostra instruções de uso
 	@echo "      $(GREEN) make logs otel-slim $(NC)"
 	@echo "      $(GREEN) make otel-metrics prod $(NC)"
 	@echo "      $(GREEN) make elk dev $(NC)"
+	@echo ""
 
 create-network:  ## Cria a rede 'opentelemetry' se não existir
 	@if ! docker network inspect opentelemetry >/dev/null 2>&1; then \
-		echo "$(ORANGE)[$@]$(YELLOW) -> Rede 'opentelemetry' não encontrada. Criando rede...$(NC)"; \
+		echo "⚠️  $(ORANGE)[$(DIRNAME)]$(YELLOW)($@)$(YELLOW) Rede 'opentelemetry' não encontrada. Criando rede...$(NC)"; \
 		docker network create opentelemetry; \
 	fi
 
@@ -137,11 +151,12 @@ logs:  ## Logs combinando arquivos: make logs otel-slim
 	@docker compose -p $(PROJECT_NAME) $(COMPOSE_FILES) logs -f --tail=100
 
 down:  ## Derruba todos os serviços de telemetria
-	$(call log_error,Derrubando serviços de telemetria...)
+	$(call log_warn,Derrubando serviços de telemetria...)
 	@docker compose -p $(PROJECT_NAME) $(ALL) down --remove-orphans
+	$(call log_info,Encerrado!)
 
 destroy:  ## Destrói todos os serviços de telemetria (com volumes)
-	$(call log_error,Aviso: todos os volumes serão removidos!)
+	$(call log_down,Aviso: todos os volumes serão removidos!)
 	@printf "Tem certeza que deseja continuar? (s/n): "; read confirm; [ "$$confirm" = "s" ] || exit 1
 	$(call log_warn,Destruindo serviços de telemetria e removendo volumes...)
 	@docker compose -p $(PROJECT_NAME) $(ALL) down -v --remove-orphans
